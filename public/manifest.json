@@ -1,0 +1,20 @@
+{
+  "short_name": "Nederlands B1-B2",
+  "name": "Nederlands B1-B2 AI Tutor & Voice Lab",
+  "description": "Interactive Dutch B1-B2 conversational tutor with speech recognition, real-time grammar corrections, role-playing scenarios, and gamified XP.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512 any",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#F8FAFC",
+  "theme_color": "#FF4F00",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "nl"
+}
