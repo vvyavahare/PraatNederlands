@@ -108,6 +108,7 @@ async function startServer() {
   app.post('/api/rag/conversations', ragController.addConversation);
   app.delete('/api/rag/conversations/:id', ragController.deleteConversation);
   app.post('/api/rag/search', ragController.searchRAG);
+  app.get('/api/rag/stats', ragController.getVectorDbStats);
   app.get('/api/rag/world-topics', ragController.getWorldTopics);
   app.post('/api/rag/world-topics/:id/toggle', ragController.toggleWorldTopic);
 

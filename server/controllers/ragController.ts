@@ -95,3 +95,13 @@ export const toggleWorldTopic = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Failed to toggle world topic' });
   }
 };
+
+export const getVectorDbStats = async (req: Request, res: Response) => {
+  try {
+    const stats = await ragService.getVectorDbStats();
+    return res.json(stats);
+  } catch (err) {
+    logger.error('Failed to get vector database stats', { error: String(err) });
+    return res.status(500).json({ error: 'Failed to fetch vector DB statistics' });
+  }
+};

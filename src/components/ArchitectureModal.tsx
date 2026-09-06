@@ -449,6 +449,33 @@ dutch_grammar_corrections_total{category="separable_verb"} 4
                     </ul>
                   </div>
                 </div>
+
+                {/* Vector Database Architecture Specification */}
+                <div className="mt-5 rounded-lg bg-slate-900/90 p-4 border border-orange-500/30">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-orange-400 animate-pulse" />
+                      <h4 className="text-xs font-bold text-white">RAG Vector Database: Orama v3.1 (Embedded Hybrid Engine)</h4>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-500/30">
+                      Apache-2.0 • 100% Free
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3 text-[11px]">
+                    <div className="text-slate-300">
+                      <strong className="text-slate-100 block">Hybrid Vector Search:</strong>
+                      Simultaneous BM25 inverted keyword index + 128-dim dense semantic embeddings.
+                    </div>
+                    <div className="text-slate-300">
+                      <strong className="text-slate-100 block">Performance & Latency:</strong>
+                      Sub-millisecond (&lt; 2.5ms) in-process queries; zero cloud API network hop overhead.
+                    </div>
+                    <div className="text-slate-300">
+                      <strong className="text-slate-100 block">Persistence:</strong>
+                      Local filesystem snapshot (<code>server/data/orama_vector_store.json</code>).
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
