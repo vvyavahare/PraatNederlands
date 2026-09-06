@@ -5,7 +5,7 @@ PraatNederlands is an advanced interactive Dutch language learning platform desi
 
 The repository is organized with distinct folders for **Backend** (`backend/`) and **Frontend** (`frontend/`) within the same GitHub repository:
 
-- ☕ **Backend (`backend/`)**: Built on **Java 25** with **Spring Boot 3.4**, **Project Loom Virtual Threads**, an in-memory RAG vector search engine with lexical cosine similarity, and Dutch linguistic grammar analyzers.
+- ☕ **Backend (`backend/`)**: Built on **Java 25** with **Spring Boot 4.1.0**, **Project Loom Virtual Threads**, an enhanced RAG hybrid vector engine combining semantic embeddings and lexical cosine similarity, and Dutch linguistic grammar analyzers.
 - ⚛️ **Frontend (`frontend/`)**: Built on **React 19**, **TypeScript**, **Vite**, and **Tailwind CSS**, featuring continuous Dutch speech recognition, live audio synthesis, and the **Correctie Studio**.
 
 ---
@@ -14,8 +14,8 @@ The repository is organized with distinct folders for **Backend** (`backend/`) a
 
 ```text
 PraatNederlands/
-├── backend/                       # ☕ Java 25 Spring Boot Enterprise Backend
-│   ├── pom.xml                    # Maven configuration (Java 25, Spring Boot 3.4, Virtual Threads)
+├── backend/                       # ☕ Java 25 Spring Boot 4.1.0 Enterprise Backend
+│   ├── pom.xml                    # Maven configuration (Java 25, Spring Boot 4.1.0, Virtual Threads)
 │   ├── mvnw & mvnw.cmd            # Maven wrapper scripts (no pre-installed Maven required)
 │   └── src/main/
 │       ├── java/com/praatnederlands/

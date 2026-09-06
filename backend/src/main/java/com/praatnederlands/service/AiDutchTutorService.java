@@ -83,11 +83,13 @@ public class AiDutchTutorService {
 
         StringBuilder ragSection = new StringBuilder();
         ragSection.append("=== RAG KNOWLEDGE BASE & SHARED MEMORY ===\n");
-        ragSection.append("Matching Excerpts:\n");
+        ragSection.append("Matching Conversations & Dialogues (Ranked by Relevance):\n");
         for (var s : ragContext.relevantSnippets()) {
-            ragSection.append("• [").append(s.title()).append("] ").append(s.speaker()).append(": \"").append(s.text()).append("\"\n");
+            ragSection.append("• [").append(s.title()).append(" | ").append(s.context()).append("]\n");
+            ragSection.append("Participants: ").append(String.join(", ", s.allSpeakers())).append("\n");
+            ragSection.append("Complete Transcript: ").append(s.fullTranscript()).append("\n\n");
         }
-        ragSection.append("All Stored Conversations:\n");
+        ragSection.append("All Stored Conversations in Catalog:\n");
         for (String cat : ragContext.recentKnowledgeCatalog()) {
             ragSection.append(cat).append("\n");
         }

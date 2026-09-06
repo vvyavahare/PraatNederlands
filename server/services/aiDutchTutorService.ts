@@ -52,12 +52,27 @@ export class AiDutchTutorService {
 
     const ragContextSection = `
 ==================== RAG KNOWLEDGE BASE & SHARED MEMORY ====================
-The following real-world Dutch dialogues, recorded standups, and company/life events have been logged into your knowledge base:
+The user and team have recorded and uploaded authentic Dutch conversations, standups, technical briefings, and life situations into your persistent knowledge base.
 
-RELEVANT MATCHING DIALOGUES & EXCERPTS:
-${ragContext.relevantSnippets.length > 0 ? ragContext.relevantSnippets.map((s) => `• [${s.title} | ${s.context}] ${s.speaker}: "${s.text}"`).join('\n') : 'No direct keyword match on this turn.'}
+MOST RELEVANT MATCHING CONVERSATIONS (Ranked by semantic vector similarity to the student's message):
+${
+  ragContext.relevantSnippets.length > 0
+    ? ragContext.relevantSnippets
+        .map(
+          (s, idx) => `
+[MATCH #${idx + 1} - ${Math.round(s.similarity * 100)}% Match: "${s.title}"]
+Context / Location: ${s.context}
+Participants: ${s.allSpeakers ? s.allSpeakers.join(', ') : s.speaker}
+COMPLETE CONVERSATION DIALOGUE & TRANSCRIPT:
+${s.fullTranscript || s.text}
+Extracted Idioms & Phrases: ${s.extractedIdioms && s.extractedIdioms.length > 0 ? s.extractedIdioms.map((i) => `"${i.phrase}" (${i.meaning})`).join(', ') : 'Geen specifieke idiomen'}
+`
+        )
+        .join('\n----------------------------------------\n')
+    : 'No direct matching conversation for this specific query.'
+}
 
-ALL RECENT COMPANY & RECORDED CONVERSATIONS IN KNOWLEDGE BASE:
+ALL RECORDED SESSIONS IN YOUR COMPLETE KNOWLEDGE BASE CATALOG:
 ${ragContext.recentKnowledgeCatalog.length > 0 ? ragContext.recentKnowledgeCatalog.join('\n') : 'No prior recordings.'}
 
 AUTHENTIC DUTCH IDIOMS & PHRASES:
@@ -79,12 +94,12 @@ ${ragContextSection}
 
 CRITICAL RAG KNOWLEDGE BASE & SHARED KNOWLEDGE DIRECTIVE (MANDATORY OVERRIDE):
 You have direct, real-time access to the RAG Knowledge Base detailed above. It contains authentic recorded meetings, team standups (e.g. at Booking.com with Lars, Sanne, PostgreSQL datamigration, release planning), citizen registrations, and custom conversations inputted by the student.
-- YOU HAVE FULL PERSONAL & PROFESSIONAL KNOWLEDGE of everything in this knowledge base!
-- If the student asks about ANY topic, person (e.g. Lars, Sanne), company (Booking.com, FinTech, Gemeente), technical event (PostgreSQL migration, staging latency < 50ms, release planning), or any custom note/recording:
-  1. YOU MUST NEVER DEFLECT! NEVER say "Ik kan niet over andere bedrijven praten", NEVER say "Daar weet ik niets van", and NEVER say "Laten we bij de sollicitatie blijven"!
-  2. YOU MUST DIRECTLY ANSWER and confirm you know about it, quoting or using the exact details from the RAG knowledge base:
-     (Example: "Jazeker, ik ben daar helemaal van op de hoogte! Lars gaf gisteren in de standup inderdaad aan dat de datamigratie naar PostgreSQL succesvol is afgerond en dat de latency op de staging cluster onder de vijftig milliseconden ligt. Goed dat je dat ter sprake brengt! Hoe zie jij jouw rol in dit soort datamigraties?")
-  3. Treat all RAG recordings as shared reality between you and the student. Directly answer what the student asked before continuing!
+- YOU HAVE COMPLETE, UNRESTRICTED ACCESS AND KNOWLEDGE of every fact, decision, person, and conversation in this knowledge base!
+- If the student asks about ANY topic, person (e.g. Lars, Sanne, Mark, colleagues), company/organization (Booking.com, FinTech, Gemeente), technical event (PostgreSQL migration, Google Cloud Run, Kubernetes, staging latency < 50ms, release planning), or any custom note/recording:
+  1. YOU MUST NEVER DEFLECT! NEVER say "Ik kan niet over andere bedrijven praten", NEVER say "Daar weet ik niets van", NEVER say "Laten we bij de rol blijven", and NEVER claim lack of knowledge!
+  2. YOU MUST DIRECTLY ANSWER and confirm you know about it, quoting or using the exact details, facts, numbers, and decisions from the matched conversation in the RAG knowledge base!
+     (Example: "Jazeker, ik ben daar helemaal van op de hoogte! In de standup gaf Lars inderdaad aan dat de datamigratie naar PostgreSQL succesvol is afgerond en dat de latency op de staging cluster stabiel onder de vijftig milliseconden ligt. Goed dat je dat ter sprake brengt!")
+  3. Treat all RAG recordings as shared reality and memory between you and the student. Directly answer what the student asked before continuing!
 
 YOUR PEDAGOGICAL INSTRUCTIONS:
 1. Always stay in character as ${scenario.characterName} while actively coaching the student.

@@ -115,6 +115,8 @@ export interface RAGSearchMatch {
   speaker: string;
   extractedIdioms: DutchIdiom[];
   locationOrContext?: string;
+  fullTranscript?: string;
+  allSpeakers?: string[];
 }
 
 export interface GlobalWorldTopic {

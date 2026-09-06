@@ -1,4 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
+import fs from 'fs';
+import path from 'path';
 import {
   RealtimeConversationRecord,
   RealtimeConversationTurn,
@@ -7,6 +9,8 @@ import {
   GlobalWorldTopic,
 } from '../types/index.ts';
 import { logger } from './logger.ts';
+
+const STORE_FILE_PATH = path.join(process.cwd(), 'server', 'data', 'rag_conversations_store.json');
 
 // Initial curated real-world Dutch dialogues representing authentic native speech
 const INITIAL_CONVERSATIONS: RealtimeConversationRecord[] = [
@@ -168,17 +172,86 @@ export class RAGKnowledgeBaseService {
   private conversations: Map<string, RealtimeConversationRecord> = new Map();
   private worldTopics: Map<string, GlobalWorldTopic> = new Map();
 
+  // High-frequency Dutch stop words to avoid false positive keyword matches
+  private static readonly DUTCH_STOP_WORDS = new Set([
+    'de', 'het', 'een', 'der', 'des', 'den', 'van', 'in', 'op', 'te', 'naar',
+    'met', 'voor', 'over', 'aan', 'bij', 'uit', 'door', 'tot', 'om', 'als',
+    'dan', 'en', 'maar', 'want', 'of', 'dus', 'dat', 'die', 'dit', 'deze',
+    'wat', 'wie', 'waar', 'wanneer', 'hoe', 'welk', 'welke', 'waarom',
+    'is', 'was', 'zijn', 'waren', 'ben', 'bent', 'wordt', 'werd', 'worden',
+    'heb', 'hebt', 'heeft', 'hadden', 'gehad', 'kan', 'kunnen', 'kon', 'konden',
+    'zou', 'zouden', 'zal', 'zullen', 'moet', 'moeten', 'mocht', 'mochten',
+    'ik', 'je', 'jij', 'jou', 'jouw', 'u', 'uw', 'hij', 'hem',
+    'zij', 'ze', 'haar', 'we', 'wij', 'ons', 'onze', 'jullie', 'hen', 'hun',
+    'weet', 'weten', 'wist', 'vertel', 'vertellen', 'zeg', 'zeggen', 'zei',
+    'gezegd', 'staat', 'staan', 'kennisbank', 'gesprek', 'gesprekken', 'opname',
+    'iets', 'niets', 'alles', 'veel', 'weinig', 'nog', 'al', 'ook', 'niet', 'wel'
+  ]);
+
+  // High-frequency English stop words
+  private static readonly ENGLISH_STOP_WORDS = new Set([
+    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'with',
+    'about', 'of', 'from', 'by', 'as', 'is', 'are', 'was', 'were', 'be', 'been',
+    'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'shall',
+    'should', 'can', 'could', 'may', 'might', 'must', 'what', 'who', 'whom',
+    'which', 'where', 'when', 'why', 'how', 'know', 'tell', 'say', 'said',
+    'talk', 'talked', 'conversation', 'rag', 'knowledge', 'base', 'any', 'some'
+  ]);
+
   constructor() {
-    // Seed in-memory store
+    this.ensureStorageLoaded();
+    for (const topic of INITIAL_WORLD_TOPICS) {
+      this.worldTopics.set(topic.id, topic);
+    }
+  }
+
+  /**
+   * Loads persisted conversation records from disk file or initializes default seeds
+   */
+  private ensureStorageLoaded(): void {
+    try {
+      const dataDir = path.dirname(STORE_FILE_PATH);
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      if (fs.existsSync(STORE_FILE_PATH)) {
+        const raw = fs.readFileSync(STORE_FILE_PATH, 'utf-8');
+        const stored: RealtimeConversationRecord[] = JSON.parse(raw);
+        if (Array.isArray(stored) && stored.length > 0) {
+          for (const rec of stored) {
+            this.conversations.set(rec.id, rec);
+          }
+          logger.info(`Loaded ${stored.length} RAG conversation records from disk storage`);
+          return;
+        }
+      }
+    } catch (err) {
+      logger.warn('Failed to load stored conversations from disk, seeding defaults', { err: String(err) });
+    }
+
+    // Seed defaults if no file exists
     for (const conv of INITIAL_CONVERSATIONS) {
       this.conversations.set(conv.id, {
         ...conv,
         embedding: this.generateLexicalVector(conv.rawTranscript + ' ' + conv.title),
       });
     }
+    this.persistStorage();
+  }
 
-    for (const topic of INITIAL_WORLD_TOPICS) {
-      this.worldTopics.set(topic.id, topic);
+  /**
+   * Persists all active conversation records to local disk
+   */
+  private persistStorage(): void {
+    try {
+      const dataDir = path.dirname(STORE_FILE_PATH);
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      const list = Array.from(this.conversations.values());
+      fs.writeFileSync(STORE_FILE_PATH, JSON.stringify(list, null, 2), 'utf-8');
+    } catch (err) {
+      logger.error('Failed to persist RAG conversations to disk', { err: String(err) });
     }
   }
 
@@ -198,11 +271,10 @@ export class RAGKnowledgeBaseService {
   }
 
   /**
-   * Fast high-dimensional lexical-semantic vector hashing fallback
-   * Creates a normalized 64-dimensional float vector based on character n-grams and Dutch tokens
+   * High-dimensional lexical-semantic vector fallback (128 dimensions)
    */
   private generateLexicalVector(text: string): number[] {
-    const dim = 64;
+    const dim = 128;
     const vector = new Array(dim).fill(0);
     const cleaned = text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ');
     const tokens = cleaned.split(/\s+/).filter(Boolean);
@@ -214,8 +286,7 @@ export class RAGKnowledgeBaseService {
         hash = (hash << 5) - hash + token.charCodeAt(j);
         hash |= 0;
       }
-      const idx = Math.abs(hash) % dim;
-      vector[idx] += 1;
+      vector[Math.abs(hash) % dim] += 1;
 
       // Bi-gram hashing
       if (i > 0) {
@@ -239,25 +310,28 @@ export class RAGKnowledgeBaseService {
   }
 
   /**
-   * Generates embedding via Gemini Embedding API or robust lexical vector fallback
+   * Generates embedding via Gemini Embedding API (gemini-embedding-001 -> 3072 dimensions)
    */
   public async generateEmbedding(text: string): Promise<number[]> {
     const aiClient = this.getAiClient();
     if (aiClient) {
-      try {
-        const response = await aiClient.models.embedContent({
-          model: 'gemini-embedding-2-preview',
-          contents: text,
-        });
-        const anyResp = response as any;
-        if (anyResp.embedding?.values && anyResp.embedding.values.length > 0) {
-          return anyResp.embedding.values;
+      const candidateModels = ['gemini-embedding-001', 'gemini-embedding-2', 'gemini-embedding-2-preview'];
+      for (const model of candidateModels) {
+        try {
+          const response = await aiClient.models.embedContent({
+            model,
+            contents: text,
+          });
+          const anyResp = response as any;
+          if (anyResp.embeddings?.[0]?.values && anyResp.embeddings[0].values.length > 0) {
+            return anyResp.embeddings[0].values;
+          }
+          if (anyResp.embedding?.values && anyResp.embedding.values.length > 0) {
+            return anyResp.embedding.values;
+          }
+        } catch (err) {
+          // try next model
         }
-        if (anyResp.embeddings?.[0]?.values && anyResp.embeddings[0].values.length > 0) {
-          return anyResp.embeddings[0].values;
-        }
-      } catch (err) {
-        logger.warn('Gemini embedding API fallback to lexical vector', { err: String(err) });
       }
     }
     return this.generateLexicalVector(text);
@@ -267,13 +341,15 @@ export class RAGKnowledgeBaseService {
    * Cosine similarity between two float vectors
    */
   private cosineSimilarity(vecA: number[], vecB: number[]): number {
-    if (!vecA || !vecB) return 0;
-    const minLen = Math.min(vecA.length, vecB.length);
+    if (!vecA || !vecB || vecA.length === 0 || vecB.length === 0) return 0;
+    if (vecA.length !== vecB.length) {
+      return 0;
+    }
     let dot = 0;
     let normA = 0;
     let normB = 0;
 
-    for (let i = 0; i < minLen; i++) {
+    for (let i = 0; i < vecA.length; i++) {
       dot += vecA[i] * vecB[i];
       normA += vecA[i] * vecA[i];
       normB += vecB[i] * vecB[i];
@@ -334,7 +410,7 @@ Conversation:
   }
 
   /**
-   * Adds a new recorded or uploaded conversation into the knowledge base
+   * Adds a new recorded or uploaded conversation into the knowledge base and persists to disk
    */
   public async addConversationRecord(
     input: Partial<RealtimeConversationRecord> & { rawTranscript: string }
@@ -342,7 +418,7 @@ Conversation:
     const id = input.id || `conv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const rawTranscript = input.rawTranscript.trim();
 
-    // Generate turns if not provided
+    // Parse dialogue turns from transcript
     let turns = input.turns || [];
     if (turns.length === 0) {
       const lines = rawTranscript.split('\n').filter(Boolean);
@@ -364,10 +440,9 @@ Conversation:
     // Extract idioms
     const extractedIdioms = input.extractedIdioms || (await this.extractIdioms(rawTranscript));
 
-    // Generate embedding
-    const embedding = await this.generateEmbedding(
-      `${input.title || ''} ${input.category || ''} ${rawTranscript}`
-    );
+    // Generate high-dimensional vector embedding for semantic search
+    const embeddingText = `${input.title || ''} ${input.locationOrContext || ''} ${rawTranscript}`;
+    const embedding = await this.generateEmbedding(embeddingText);
 
     const record: RealtimeConversationRecord = {
       id,
@@ -386,11 +461,14 @@ Conversation:
     };
 
     this.conversations.set(id, record);
-    logger.info('Added new conversation record to RAG Knowledge Base', {
+    this.persistStorage();
+
+    logger.info('Added new conversation record to RAG Knowledge Base and saved to disk', {
       id,
       title: record.title,
       turnsCount: record.turns.length,
       idiomsCount: record.extractedIdioms.length,
+      embeddingDim: embedding.length,
     });
 
     return record;
@@ -407,63 +485,82 @@ Conversation:
     if (!query || !query.trim()) return [];
 
     const queryLower = query.toLowerCase().trim();
-    const queryTokens = queryLower
+    // Filter out stop words for high-signal entity matching
+    const rawTokens = queryLower
       .replace(/[^a-z0-9\s]/g, ' ')
       .split(/\s+/)
-      .filter((w) => w.length >= 3);
+      .filter((w) => w.length >= 2);
+
+    const meaningfulTokens = rawTokens.filter(
+      (w) => !RAGKnowledgeBaseService.DUTCH_STOP_WORDS.has(w) && !RAGKnowledgeBaseService.ENGLISH_STOP_WORDS.has(w)
+    );
+
+    // Fall back to raw tokens if all were stop words (e.g. very short query)
+    const queryTokens = meaningfulTokens.length > 0 ? meaningfulTokens : rawTokens;
 
     const queryEmbedding = await this.generateEmbedding(query);
     const matches: RAGSearchMatch[] = [];
 
     for (const record of this.conversations.values()) {
-      let similarity = 0;
-      if (record.embedding && record.embedding.length > 0) {
-        similarity = this.cosineSimilarity(queryEmbedding, record.embedding);
-      } else {
-        // Simple token overlap fallback
-        const rWords = record.rawTranscript.toLowerCase().split(/\s+/);
-        const overlap = queryTokens.filter((w) => rWords.includes(w)).length;
-        similarity = Math.min(1, overlap / Math.max(1, queryTokens.length));
+      let semanticScore = 0;
+      if (record.embedding && record.embedding.length > 0 && queryEmbedding.length === record.embedding.length) {
+        semanticScore = this.cosineSimilarity(queryEmbedding, record.embedding);
       }
 
-      // Keyword & Entity boosting (e.g. title, speakers, tags, locations)
+      // Keyword & Entity matching (Speakers, Title, Location, Tags, Transcript)
       const recordTitleLower = record.title.toLowerCase();
       const recordTextLower = record.rawTranscript.toLowerCase();
       const recordLocationLower = (record.locationOrContext || '').toLowerCase();
       const recordTagsLower = (record.tags || []).map((t) => t.toLowerCase());
+      const speakersLower = record.turns.map((t) => t.speaker.toLowerCase());
 
-      let entityMatchBonus = 0;
+      let entityScore = 0;
       for (const token of queryTokens) {
-        if (recordTitleLower.includes(token)) entityMatchBonus += 0.35;
-        if (recordLocationLower.includes(token)) entityMatchBonus += 0.25;
-        if (recordTagsLower.some((t) => t.includes(token))) entityMatchBonus += 0.3;
-        if (recordTextLower.includes(token)) entityMatchBonus += 0.15;
-      }
-
-      // Check speaker names
-      for (const turn of record.turns) {
-        const speakerLower = turn.speaker.toLowerCase();
-        for (const token of queryTokens) {
-          if (speakerLower.includes(token)) {
-            entityMatchBonus += 0.35;
-            break;
-          }
+        // Speaker name matches receive top priority (e.g. Lars, Sanne, Mark, Klaas)
+        if (speakersLower.some((s) => s.includes(token))) {
+          entityScore += 0.55;
+        }
+        // Title matches (e.g. Booking, PostgreSQL, Gemeente, Huur)
+        if (recordTitleLower.includes(token)) {
+          entityScore += 0.45;
+        }
+        // Tags matches
+        if (recordTagsLower.some((t) => t.includes(token))) {
+          entityScore += 0.35;
+        }
+        // Location matches
+        if (recordLocationLower.includes(token)) {
+          entityScore += 0.30;
+        }
+        // Body transcript matches
+        if (recordTextLower.includes(token)) {
+          entityScore += 0.20;
         }
       }
 
-      // Boost user-created or live-recorded items slightly for recency
-      if (record.source === 'live_recorded') {
-        entityMatchBonus += 0.1;
+      // Recency & User-Uploaded boost (+0.20 to favor live user notes/recordings)
+      let userBoost = 0;
+      if (record.source === 'live_recorded' || record.source === 'uploaded_transcript') {
+        userBoost += 0.20;
       }
 
-      // Category matching preference (soft boost rather than hard filter)
+      // Category soft boost
+      let categoryBoost = 0;
       if (categoryFilter && categoryFilter !== 'all' && record.category === categoryFilter) {
-        entityMatchBonus += 0.1;
+        categoryBoost += 0.05;
       }
 
-      similarity = Math.min(0.99, similarity + entityMatchBonus);
+      // Combined hybrid score
+      let combinedScore: number;
+      if (semanticScore > 0) {
+        combinedScore = (semanticScore * 0.55) + (Math.min(1.0, entityScore) * 0.35) + userBoost + categoryBoost;
+      } else {
+        combinedScore = (Math.min(1.0, entityScore) * 0.75) + userBoost + categoryBoost;
+      }
 
-      // Find the most relevant turn
+      combinedScore = Math.min(0.99, Math.max(0.01, combinedScore));
+
+      // Find the single most relevant turn for quick quote
       let bestTurn = record.turns[0]?.text || record.rawTranscript.slice(0, 150);
       let bestSpeaker = record.turns[0]?.speaker || 'Spreker';
       let highestTurnScore = 0;
@@ -485,11 +582,13 @@ Conversation:
         recordId: record.id,
         title: record.title,
         category: record.category,
-        similarity: Math.round(similarity * 100) / 100,
+        similarity: Math.round(combinedScore * 100) / 100,
         matchedTurn: bestTurn,
         speaker: bestSpeaker,
         extractedIdioms: record.extractedIdioms,
         locationOrContext: record.locationOrContext,
+        fullTranscript: record.rawTranscript,
+        allSpeakers: Array.from(new Set(record.turns.map((t) => t.speaker))),
       });
     }
 
@@ -504,24 +603,36 @@ Conversation:
     userText: string,
     category?: string
   ): Promise<{
-    relevantSnippets: { speaker: string; text: string; context: string; title: string; recordId: string }[];
+    relevantSnippets: {
+      speaker: string;
+      text: string;
+      context: string;
+      title: string;
+      recordId: string;
+      fullTranscript: string;
+      allSpeakers: string[];
+      extractedIdioms: DutchIdiom[];
+      similarity: number;
+    }[];
     authenticIdioms: DutchIdiom[];
     globalWorldFacts: string[];
     recentKnowledgeCatalog: string[];
-    allRecordsBrief: { id: string; title: string; summary: string; extractedPhrases: string[] }[];
+    allRecordsBrief: { id: string; title: string; summary: string; extractedPhrases: string[]; fullTranscript: string }[];
   }> {
-    // Search top matches without strict category exclusion so tutor knows cross-domain info
+    // Search top matches
     const matches = await this.searchKnowledgeBase(userText, 4, category);
 
-    const relevantSnippets = matches
-      .filter((m) => m.similarity > 0.05)
-      .map((m) => ({
-        recordId: m.recordId,
-        title: m.title,
-        speaker: m.speaker,
-        text: m.matchedTurn,
-        context: `${m.title} (${m.locationOrContext || m.category})`,
-      }));
+    const relevantSnippets = matches.map((m) => ({
+      recordId: m.recordId,
+      title: m.title,
+      speaker: m.speaker,
+      text: m.matchedTurn,
+      context: `${m.title} (${m.locationOrContext || m.category})`,
+      fullTranscript: m.fullTranscript || m.matchedTurn,
+      allSpeakers: m.allSpeakers || [m.speaker],
+      extractedIdioms: m.extractedIdioms || [],
+      similarity: m.similarity,
+    }));
 
     // Gather unique idioms from matches and all records
     const idiomsMap = new Map<string, DutchIdiom>();
@@ -530,7 +641,6 @@ Conversation:
         idiomsMap.set(idiom.phrase, idiom);
       }
     }
-    // Also include high-value workplace idioms
     for (const rec of this.conversations.values()) {
       for (const idiom of rec.extractedIdioms) {
         if (!idiomsMap.has(idiom.phrase)) {
@@ -547,25 +657,29 @@ Conversation:
 
     // Build a knowledge catalog of all stored conversations so tutor is universally aware
     const recentKnowledgeCatalog: string[] = [];
-    const allRecordsBrief: { id: string; title: string; summary: string; extractedPhrases: string[] }[] = [];
+    const allRecordsBrief: { id: string; title: string; summary: string; extractedPhrases: string[]; fullTranscript: string }[] = [];
 
-    const allRecords = Array.from(this.conversations.values());
+    const allRecords = Array.from(this.conversations.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
     for (const rec of allRecords) {
-      const summaryTurns = rec.turns.slice(0, 3).map((t) => `${t.speaker}: "${t.text}"`).join(' | ');
+      const speakerList = Array.from(new Set(rec.turns.map((t) => t.speaker))).join(', ');
       recentKnowledgeCatalog.push(
-        `• [${rec.title}] (${rec.category}, ${rec.locationOrContext || 'Nederland'}): ${summaryTurns}`
+        `• [${rec.title}] (${rec.category}, ${rec.locationOrContext || 'Nederland'} | Sprekers: ${speakerList}): "${rec.rawTranscript.slice(0, 240).replace(/\n/g, ' ')}..."`
       );
       allRecordsBrief.push({
         id: rec.id,
         title: rec.title,
         summary: rec.rawTranscript.slice(0, 200),
         extractedPhrases: rec.extractedIdioms.map((i) => i.phrase),
+        fullTranscript: rec.rawTranscript,
       });
     }
 
     return {
       relevantSnippets,
-      authenticIdioms: Array.from(idiomsMap.values()).slice(0, 5),
+      authenticIdioms: Array.from(idiomsMap.values()).slice(0, 6),
       globalWorldFacts,
       recentKnowledgeCatalog,
       allRecordsBrief,
@@ -602,10 +716,14 @@ Conversation:
   }
 
   /**
-   * Delete a conversation record
+   * Delete a conversation record and persist changes to disk
    */
   public deleteConversation(id: string): boolean {
-    return this.conversations.delete(id);
+    const deleted = this.conversations.delete(id);
+    if (deleted) {
+      this.persistStorage();
+    }
+    return deleted;
   }
 }
 

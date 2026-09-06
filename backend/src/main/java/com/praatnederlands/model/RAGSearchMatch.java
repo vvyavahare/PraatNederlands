@@ -10,5 +10,7 @@ public record RAGSearchMatch(
     String matchedTurn,
     String speaker,
     List<DutchIdiom> extractedIdioms,
-    String locationOrContext
+    String locationOrContext,
+    String fullTranscript,
+    List<String> allSpeakers
 ) {}

@@ -27,9 +27,42 @@ public class RagService {
         List<String> recentKnowledgeCatalog,
         List<RecordBrief> allRecordsBrief
     ) {
-        public record MatchedSnippet(String speaker, String text, String context, String title, String recordId) {}
-        public record RecordBrief(String id, String title, String summary, List<String> extractedPhrases) {}
+        public record MatchedSnippet(
+            String speaker,
+            String text,
+            String context,
+            String title,
+            String recordId,
+            String fullTranscript,
+            List<String> allSpeakers,
+            double similarity
+        ) {}
+        public record RecordBrief(String id, String title, String summary, List<String> extractedPhrases, String fullTranscript) {}
     }
+
+    private static final Set<String> DUTCH_STOP_WORDS = Set.of(
+        "de", "het", "een", "der", "des", "den", "van", "in", "op", "te", "naar",
+        "met", "voor", "over", "aan", "bij", "uit", "door", "tot", "om", "als",
+        "dan", "en", "maar", "want", "of", "dus", "dat", "die", "dit", "deze",
+        "wat", "wie", "waar", "wanneer", "hoe", "welk", "welke", "waarom",
+        "is", "was", "zijn", "waren", "ben", "bent", "wordt", "werd", "worden",
+        "heb", "hebt", "heeft", "hadden", "gehad", "kan", "kunnen", "kon", "konden",
+        "zou", "zouden", "zal", "zullen", "moet", "moeten", "mocht", "mochten",
+        "ik", "je", "jij", "jou", "jouw", "u", "uw", "hij", "hem",
+        "zij", "ze", "haar", "we", "wij", "ons", "onze", "jullie", "hen", "hun",
+        "weet", "weten", "wist", "vertel", "vertellen", "zeg", "zeggen", "zei",
+        "gezegd", "staat", "staan", "kennisbank", "gesprek", "gesprekken", "opname",
+        "iets", "niets", "alles", "veel", "weinig", "nog", "al", "ook", "niet", "wel"
+    );
+
+    private static final Set<String> ENGLISH_STOP_WORDS = Set.of(
+        "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "with",
+        "about", "of", "from", "by", "as", "is", "are", "was", "were", "be", "been",
+        "being", "have", "has", "had", "do", "does", "did", "will", "would", "shall",
+        "should", "can", "could", "may", "might", "must", "what", "who", "whom",
+        "which", "where", "when", "why", "how", "know", "tell", "say", "said",
+        "talk", "talked", "conversation", "rag", "knowledge", "base", "any", "some"
+    );
 
     public RagService() {
         seedInitialKnowledgeBase();
@@ -181,15 +214,21 @@ public class RagService {
         if (query == null || query.isBlank()) return List.of();
 
         String queryLower = query.toLowerCase().trim();
-        List<String> queryTokens = Arrays.stream(queryLower.replaceAll("[^a-z0-9\\s]", " ").split("\\s+"))
-            .filter(w -> w.length() >= 3)
+        List<String> rawTokens = Arrays.stream(queryLower.replaceAll("[^a-z0-9\\s]", " ").split("\\s+"))
+            .filter(w -> w.length() >= 2)
             .toList();
+
+        List<String> meaningfulTokens = rawTokens.stream()
+            .filter(w -> !DUTCH_STOP_WORDS.contains(w) && !ENGLISH_STOP_WORDS.contains(w))
+            .toList();
+
+        List<String> queryTokens = meaningfulTokens.isEmpty() ? rawTokens : meaningfulTokens;
 
         List<Double> queryVec = generateLexicalVector(query);
         List<RAGSearchMatch> matches = new ArrayList<>();
 
         for (RealtimeConversationRecord record : conversations.values()) {
-            double similarity = cosineSimilarity(queryVec, record.embedding());
+            double semanticSim = cosineSimilarity(queryVec, record.embedding());
 
             // Keyword & entity boost
             double bonus = 0.0;
@@ -198,27 +237,30 @@ public class RagService {
             String locLower = (record.locationOrContext() != null ? record.locationOrContext() : "").toLowerCase();
 
             for (String token : queryTokens) {
-                if (titleLower.contains(token)) bonus += 0.35;
-                if (locLower.contains(token)) bonus += 0.25;
-                if (textLower.contains(token)) bonus += 0.15;
+                if (titleLower.contains(token)) bonus += 0.45;
+                if (locLower.contains(token)) bonus += 0.30;
+                if (textLower.contains(token)) bonus += 0.20;
             }
 
             for (var turn : record.turns()) {
                 String spk = turn.speaker().toLowerCase();
                 for (String token : queryTokens) {
                     if (spk.contains(token)) {
-                        bonus += 0.35;
+                        bonus += 0.55;
                         break;
                     }
                 }
             }
 
-            if ("live_recorded".equals(record.source())) bonus += 0.1;
+            if ("live_recorded".equals(record.source()) || "uploaded_transcript".equals(record.source())) {
+                bonus += 0.20;
+            }
             if (categoryFilter != null && !categoryFilter.equals("all") && record.category().equalsIgnoreCase(categoryFilter)) {
-                bonus += 0.1;
+                bonus += 0.05;
             }
 
-            similarity = Math.min(0.99, similarity + bonus);
+            double combinedScore = (semanticSim * 0.55) + (Math.min(1.0, bonus) * 0.45);
+            combinedScore = Math.min(0.99, Math.max(0.01, combinedScore));
 
             String bestTurn = record.turns().isEmpty() ? record.rawTranscript() : record.turns().get(0).text();
             String bestSpeaker = record.turns().isEmpty() ? "Spreker" : record.turns().get(0).speaker();
@@ -232,15 +274,19 @@ public class RagService {
                 }
             }
 
+            List<String> allSpeakers = record.turns().stream().map(RealtimeConversationRecord.DialogueTurn::speaker).distinct().toList();
+
             matches.add(new RAGSearchMatch(
                 record.id(),
                 record.title(),
                 record.category(),
-                Math.round(similarity * 100.0) / 100.0,
+                Math.round(combinedScore * 100.0) / 100.0,
                 bestTurn,
                 bestSpeaker,
                 record.extractedIdioms(),
-                record.locationOrContext()
+                record.locationOrContext(),
+                record.rawTranscript(),
+                allSpeakers
             ));
         }
 
@@ -252,13 +298,15 @@ public class RagService {
         List<RAGSearchMatch> matches = searchKnowledgeBase(userText, 4, category);
 
         List<RagContextResult.MatchedSnippet> snippets = matches.stream()
-            .filter(m -> m.similarity() > 0.05)
             .map(m -> new RagContextResult.MatchedSnippet(
                 m.speaker(),
                 m.matchedTurn(),
                 m.title() + " (" + (m.locationOrContext() != null ? m.locationOrContext() : m.category()) + ")",
                 m.title(),
-                m.recordId()
+                m.recordId(),
+                m.fullTranscript() != null ? m.fullTranscript() : m.matchedTurn(),
+                m.allSpeakers() != null ? m.allSpeakers() : List.of(m.speaker()),
+                m.similarity()
             ))
             .toList();
 
@@ -292,7 +340,8 @@ public class RagService {
                 rec.id(),
                 rec.title(),
                 rec.rawTranscript().substring(0, Math.min(200, rec.rawTranscript().length())),
-                rec.extractedIdioms().stream().map(DutchIdiom::phrase).toList()
+                rec.extractedIdioms().stream().map(DutchIdiom::phrase).toList(),
+                rec.rawTranscript()
             ));
         }
 
