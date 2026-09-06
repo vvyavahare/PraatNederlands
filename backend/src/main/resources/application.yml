@@ -1,0 +1,32 @@
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  application:
+    name: praatnederlands-backend
+  threads:
+    virtual:
+      enabled: true # Java 25 Virtual Threads enabled for high concurrency
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+
+app:
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    model: gemini-3.1-flash-lite
+    fallback-model: gemini-3.8-flash
+  cors:
+    allowed-origins:
+      - "http://localhost:3000"
+      - "http://localhost:5173"
+      - "http://127.0.0.1:3000"

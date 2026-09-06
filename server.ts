@@ -12,6 +12,7 @@ import * as authController from './server/controllers/authController.ts';
 import * as conversationController from './server/controllers/conversationController.ts';
 import * as learningController from './server/controllers/learningController.ts';
 import * as opsController from './server/controllers/opsController.ts';
+import * as ragController from './server/controllers/ragController.ts';
 
 dotenv.config();
 
@@ -101,6 +102,14 @@ async function startServer() {
   app.get('/api/conversation/session/:sessionId/history', conversationController.getSessionHistory);
   app.get('/api/conversation/session/:sessionId/stream', conversationController.handleSseStream);
   app.post('/api/conversation/session/:sessionId/message', conversationController.sendMessage);
+
+  // RAG Knowledge Base & Real-time World Topics
+  app.get('/api/rag/conversations', ragController.getConversations);
+  app.post('/api/rag/conversations', ragController.addConversation);
+  app.delete('/api/rag/conversations/:id', ragController.deleteConversation);
+  app.post('/api/rag/search', ragController.searchRAG);
+  app.get('/api/rag/world-topics', ragController.getWorldTopics);
+  app.post('/api/rag/world-topics/:id/toggle', ragController.toggleWorldTopic);
 
   // ===================== FRONTEND SERVING =====================
 

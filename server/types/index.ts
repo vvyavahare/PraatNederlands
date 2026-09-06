@@ -75,3 +75,56 @@ export interface MetricSnapshot {
   correctionsCount: number;
   uptimeSeconds: number;
 }
+
+export interface RealtimeConversationTurn {
+  speaker: string; // e.g. "Collega A", "Bram", "Baliemedewerker", "Student"
+  text: string;
+  translationEn?: string;
+  timestamp?: string;
+}
+
+export interface DutchIdiom {
+  phrase: string;
+  meaning: string;
+  register: 'informal' | 'formal' | 'slang' | 'workplace';
+  exampleSentence?: string;
+}
+
+export interface RealtimeConversationRecord {
+  id: string;
+  title: string;
+  category: 'workplace' | 'daily_life' | 'housing' | 'healthcare' | 'administration' | 'social' | 'news';
+  tags: string[];
+  level: 'B1' | 'B2' | 'C1';
+  turns: RealtimeConversationTurn[];
+  rawTranscript: string;
+  extractedIdioms: DutchIdiom[];
+  worldContextTopic?: string;
+  embedding?: number[];
+  createdAt: string;
+  source: 'live_recorded' | 'uploaded_transcript' | 'curated_native';
+  locationOrContext?: string; // e.g., "Amsterdam Zuidas Tech Hub", "Gemeente Utrecht Loket"
+}
+
+export interface RAGSearchMatch {
+  recordId: string;
+  title: string;
+  category: string;
+  similarity: number;
+  matchedTurn: string;
+  speaker: string;
+  extractedIdioms: DutchIdiom[];
+  locationOrContext?: string;
+}
+
+export interface GlobalWorldTopic {
+  id: string;
+  topicTitle: string;
+  category: string;
+  summaryDutch: string;
+  summaryEnglish: string;
+  activeInRAG: boolean;
+  sourceUrlOrEntity?: string;
+  updatedAt: string;
+}
+

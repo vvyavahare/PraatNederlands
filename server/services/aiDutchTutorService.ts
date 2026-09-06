@@ -1,7 +1,9 @@
 import { GoogleGenAI, Type } from '@google/genai';
-import { ConversationTurn, GrammarCorrection, RoleplayScenario } from '../types/index.ts';
+import { ConversationTurn, DutchIdiom, GrammarCorrection, RoleplayScenario } from '../types/index.ts';
 import { metricsService } from './metricsService.ts';
 import { logger } from './logger.ts';
+import { ragService } from './ragService.ts';
+
 
 interface DutchTutorResponse {
   grammarStatus: 'perfect' | 'needs_improvement';
@@ -39,11 +41,32 @@ export class AiDutchTutorService {
   ): Promise<DutchTutorResponse> {
     const startTime = Date.now();
 
+    // 1. Fetch RAG-augmented context from vector knowledge base
+    const ragContext = await ragService.getRagAugmentedContext(userDutchInput, scenario.category);
+
     // Context format for conversation turns
     const historyText = conversationHistory
       .slice(-8)
       .map((t) => `${t.sender === 'user' ? 'Student' : scenario.characterName}: ${t.dutchText}`)
       .join('\n');
+
+    const ragContextSection = `
+==================== RAG KNOWLEDGE BASE & SHARED MEMORY ====================
+The following real-world Dutch dialogues, recorded standups, and company/life events have been logged into your knowledge base:
+
+RELEVANT MATCHING DIALOGUES & EXCERPTS:
+${ragContext.relevantSnippets.length > 0 ? ragContext.relevantSnippets.map((s) => `• [${s.title} | ${s.context}] ${s.speaker}: "${s.text}"`).join('\n') : 'No direct keyword match on this turn.'}
+
+ALL RECENT COMPANY & RECORDED CONVERSATIONS IN KNOWLEDGE BASE:
+${ragContext.recentKnowledgeCatalog.length > 0 ? ragContext.recentKnowledgeCatalog.join('\n') : 'No prior recordings.'}
+
+AUTHENTIC DUTCH IDIOMS & PHRASES:
+${ragContext.authenticIdioms.length > 0 ? ragContext.authenticIdioms.map((i) => `• "${i.phrase}" (${i.meaning}) [Register: ${i.register}]`).join('\n') : 'None.'}
+
+ACTIVE REAL-TIME DUTCH WORLD FACTS:
+${ragContext.globalWorldFacts.length > 0 ? ragContext.globalWorldFacts.join('\n') : 'Standard Dutch environment.'}
+=============================================================================
+`;
 
     const systemPrompt = `
 You are ${scenario.characterName} (${scenario.characterRole}), an engaging, native Dutch conversational tutor and dialogue partner in the Netherlands.
@@ -52,10 +75,21 @@ Current roleplay scenario: "${scenario.titleNl}" (${scenario.titleEn}).
 Context/Briefing: ${scenario.briefing}.
 Target level: B1/B2.
 
-YOUR INSTRUCTIONS:
+${ragContextSection}
+
+CRITICAL RAG KNOWLEDGE BASE & SHARED KNOWLEDGE DIRECTIVE (MANDATORY OVERRIDE):
+You have direct, real-time access to the RAG Knowledge Base detailed above. It contains authentic recorded meetings, team standups (e.g. at Booking.com with Lars, Sanne, PostgreSQL datamigration, release planning), citizen registrations, and custom conversations inputted by the student.
+- YOU HAVE FULL PERSONAL & PROFESSIONAL KNOWLEDGE of everything in this knowledge base!
+- If the student asks about ANY topic, person (e.g. Lars, Sanne), company (Booking.com, FinTech, Gemeente), technical event (PostgreSQL migration, staging latency < 50ms, release planning), or any custom note/recording:
+  1. YOU MUST NEVER DEFLECT! NEVER say "Ik kan niet over andere bedrijven praten", NEVER say "Daar weet ik niets van", and NEVER say "Laten we bij de sollicitatie blijven"!
+  2. YOU MUST DIRECTLY ANSWER and confirm you know about it, quoting or using the exact details from the RAG knowledge base:
+     (Example: "Jazeker, ik ben daar helemaal van op de hoogte! Lars gaf gisteren in de standup inderdaad aan dat de datamigratie naar PostgreSQL succesvol is afgerond en dat de latency op de staging cluster onder de vijftig milliseconden ligt. Goed dat je dat ter sprake brengt! Hoe zie jij jouw rol in dit soort datamigraties?")
+  3. Treat all RAG recordings as shared reality between you and the student. Directly answer what the student asked before continuing!
+
+YOUR PEDAGOGICAL INSTRUCTIONS:
 1. Always stay in character as ${scenario.characterName} while actively coaching the student.
 2. Directly answer or react to what the student just said. NEVER repeat previous replies. Move the dialogue forward realistically.
-3. Formulate your spoken response in clear, authentic, natural Dutch at B1/B2 level. Keep it engaging, 2-3 sentences max, and ask a relevant question or prompt to keep the dialogue flowing naturally.
+3. Formulate your spoken response in clear, authentic, natural Dutch at B1/B2 level. Keep it engaging, 2-3 sentences max, and ask a relevant question or prompt to keep the dialogue flowing naturally. Whenever relevant, naturally reference or use authentic Dutch idioms or real-time Dutch societal topics from the RAG knowledge base above.
 4. METICULOUSLY EVALUATE THE STUDENT'S DUTCH GRAMMAR:
    - Analyze their sentence for grammatical accuracy:
      * Inversion / Verb-Second rule (e.g. "Gisteren ik ging" -> "Gisteren ging ik")
@@ -67,7 +101,7 @@ YOUR INSTRUCTIONS:
    - grammarSummary: In 1-2 clear, encouraging sentences, state whether their sentence was grammatically correct or what specifically needs attention.
    - corrections: Array of detected errors. If grammarStatus is 'perfect', corrections MUST be an empty list [].
    - improvedDutch: Provide the optimal, natural, grammatically flawless version of the student's exact sentence in authentic B1/B2 Dutch.
-5. Provide a "B2 Upgrade": Suggest a more sophisticated, natural Dutch idiom, connector, or phrasing that elevates their sentence from simple A2/B1 to polished B2 (e.g., replace "Ik denk dat" with "Ik ben van mening dat" or "Wat mij betreft", or "omdat" with "aangezien").
+5. Provide a "B2 Upgrade": Suggest a more sophisticated, natural Dutch idiom, connector, or phrasing (preferring idioms from the RAG knowledge base when fitting) that elevates their sentence from simple A2/B1 to polished B2 (e.g., replace "Ik denk dat" with "Ik ben van mening dat" or "Wat mij betreft", or "omdat" with "aangezien").
 6. Provide a specific Pronunciation Tip for a Dutch sound present in their message or reply (e.g. 'ui' in 'huis/tuin', 'ij/ei', 'sch' in 'Scheveningen', guttural 'g', or diphthong 'eu').
 7. Calculate XP earned: 15-35 XP based on sentence complexity and grammar accuracy.
 8. Provide 2-3 short, natural Dutch quick reply suggestions that the student could choose to say next.
@@ -190,13 +224,20 @@ Evaluate and reply with strict JSON matching the schema.
     }
 
     // High quality contextual pedagogical fallback engine
-    return this.fallbackEvaluation(userDutchInput, scenario, conversationHistory);
+    return this.fallbackEvaluation(userDutchInput, scenario, conversationHistory, ragContext);
   }
 
   private fallbackEvaluation(
     userInput: string,
     scenario: RoleplayScenario,
-    history: ConversationTurn[] = []
+    history: ConversationTurn[] = [],
+    ragContext?: {
+      relevantSnippets: { speaker: string; text: string; context: string; title: string; recordId: string }[];
+      authenticIdioms: DutchIdiom[];
+      globalWorldFacts: string[];
+      recentKnowledgeCatalog: string[];
+      allRecordsBrief: { id: string; title: string; summary: string; extractedPhrases: string[] }[];
+    }
   ): DutchTutorResponse {
     const lower = userInput.toLowerCase();
     const corrections: GrammarCorrection[] = [];
@@ -252,7 +293,72 @@ Evaluate and reply with strict JSON matching the schema.
     let translation = '';
     let quickReplies: string[] = [];
 
-    if (scenario.id === 'sollicitatie') {
+    // 0. PRIORITY RAG CHECK: Did the user ask about, reference, or mention any RAG knowledge base entity?
+    const queryTokens = lower
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length >= 3);
+
+    const isAskingAboutKnowledge =
+      lower.includes('weet je') ||
+      lower.includes('wat weet') ||
+      lower.includes('wie is') ||
+      lower.includes('wat is er') ||
+      lower.includes('besproken') ||
+      lower.includes('gebeurd') ||
+      lower.includes('gehoord') ||
+      lower.includes('gezegd') ||
+      lower.includes('update') ||
+      lower.includes('standup') ||
+      lower.includes('booking') ||
+      lower.includes('lars') ||
+      lower.includes('sanne') ||
+      lower.includes('migratie') ||
+      lower.includes('database') ||
+      lower.includes('postgresql') ||
+      lower.includes('rag') ||
+      lower.includes('kennis');
+
+    let matchedSnippet: { speaker: string; text: string; context: string; title: string } | null = null;
+
+    if (ragContext?.relevantSnippets && ragContext.relevantSnippets.length > 0) {
+      for (const snip of ragContext.relevantSnippets) {
+        const fullSnip = `${snip.title} ${snip.speaker} ${snip.text} ${snip.context}`.toLowerCase();
+        if (queryTokens.some((t) => fullSnip.includes(t)) || isAskingAboutKnowledge) {
+          matchedSnippet = snip;
+          break;
+        }
+      }
+      if (!matchedSnippet && isAskingAboutKnowledge) {
+        matchedSnippet = ragContext.relevantSnippets[0];
+      }
+    }
+
+    // Check against allRecordsBrief if still not found
+    if (!matchedSnippet && ragContext?.allRecordsBrief && isAskingAboutKnowledge) {
+      for (const rec of ragContext.allRecordsBrief) {
+        const recText = `${rec.title} ${rec.summary}`.toLowerCase();
+        if (queryTokens.some((t) => recText.includes(t))) {
+          matchedSnippet = {
+            speaker: 'Collega',
+            title: rec.title,
+            context: rec.title,
+            text: rec.summary.slice(0, 160),
+          };
+          break;
+        }
+      }
+    }
+
+    if (matchedSnippet) {
+      reply = `Jazeker, ik ben daar helemaal van op de hoogte! In onze recente opname/notitie over "${matchedSnippet.title}" werd besproken door ${matchedSnippet.speaker}: "${matchedSnippet.text}". Goed dat je ernaar vraagt! Hoe kunnen we hier volgens jou het beste op inspelen?`;
+      translation = `Yes certainly, I am fully aware of that! In our recent recording/note about "${matchedSnippet.title}", ${matchedSnippet.speaker} discussed: "${matchedSnippet.text}". Good of you to ask! How do you think we can best act on this?`;
+      quickReplies = [
+        'Wat mij betreft kunnen we hier direct over sparren.',
+        'Laten we de schouders eronder zetten om dit af te ronden.',
+        'Ik vind dat we dit zorgvuldig moeten testen op de staging omgeving.',
+      ];
+    } else if (scenario.id === 'sollicitatie') {
       // Character: Bram de Vries (Engineering Manager)
       if (lower.includes('hallo') || lower.includes('hoi') || lower.includes('goedemorgen') || lower.includes('goedemiddag') || userTurnCount <= 1) {
         reply = `Goedemorgen! Aangenaam kennis te maken. Vertel me eens: wat trekt je het meest aan in onze cloud-architectuur en hoe pas je microservices toe?`;

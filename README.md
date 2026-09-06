@@ -3,190 +3,177 @@
 
 PraatNederlands is an advanced interactive Dutch language learning platform designed specifically for intermediate learners (NT2 Staatsexamen B1–B2) and international professionals preparing for job interviews, municipal registrations, and daily life in the Netherlands.
 
-Powered by **Google Gemini AI**, **Web Speech API**, **Express**, **React 19**, **TypeScript**, and **Tailwind CSS**, PraatNederlands combines conversational voice interactions with a dedicated **Grammatica & Correctie Studio** for real-time grammar diffs, word order checks (inversion, subclauses), and B2 vocabulary upgrades.
+The repository is organized with distinct folders for **Backend** (`backend/`) and **Frontend** (`frontend/`) within the same GitHub repository:
+
+- ☕ **Backend (`backend/`)**: Built on **Java 25** with **Spring Boot 3.4**, **Project Loom Virtual Threads**, an in-memory RAG vector search engine with lexical cosine similarity, and Dutch linguistic grammar analyzers.
+- ⚛️ **Frontend (`frontend/`)**: Built on **React 19**, **TypeScript**, **Vite**, and **Tailwind CSS**, featuring continuous Dutch speech recognition, live audio synthesis, and the **Correctie Studio**.
 
 ---
 
-## ✨ Key Features
+## 📂 Repository Structure
 
-- 🎙️ **Continuous Speech Recognition**: Natural Dutch voice recording with manual "Stop & Evaluate" control — take your time without accidental pauses cutting you off.
-- 🗣️ **Native Dutch Audio Synthesis**: Listen to high-fidelity Dutch speech (e.g., Bram de Vries, Engineering Manager) with adjustable playback speeds (0.8x, 0.9x, 1.0x).
-- 🔍 **Live Correctie Studio**: Side-by-side linguistic analysis featuring:
-  - Exact word-for-word error diffs (*Wat je zei* vs. *Correct Nederlands*)
-  - Clear grammatical explanations (de/het articles, separable verbs, inversie, bijzin woordvolgorde)
-  - Native B2 sentence upgrades
-  - Pronunciation tips & common mistakes
-- 🏢 **Immersive Dutch Scenarios**:
-  - *IT Sollicitatiegesprek bij FinTech Amsterdam* met Bram de Vries (Engineering Manager)
-  - *Afspraak bij de Gemeente* (BSN registratie, vestiging)
-  - *Huisartsbezoek & Gezondheid* (klachten omschrijven)
-  - *Woningzoektocht & Huurcontract*
-- ⚡ **Resilient Architecture**: Full server-side Gemini AI processing with smart offline fallback heuristics ensuring the app always functions even without an API key.
-- 🏆 **Gamified Progress**: Earn XP, build daily streaks, and track CEFR B1–B2 grammar mastery.
+```text
+PraatNederlands/
+├── backend/                       # ☕ Java 25 Spring Boot Enterprise Backend
+│   ├── pom.xml                    # Maven configuration (Java 25, Spring Boot 3.4, Virtual Threads)
+│   ├── mvnw & mvnw.cmd            # Maven wrapper scripts (no pre-installed Maven required)
+│   └── src/main/
+│       ├── java/com/praatnederlands/
+│       │   ├── PraatNederlandsApplication.java   # Spring Boot Application entry point
+│       │   ├── config/                           # CORS & Virtual Thread Customizers
+│       │   ├── controller/                       # REST Controllers (Conversation, RAG, Learning, Ops)
+│       │   ├── model/                            # Immutable Java 25 Records (Turn, Scenario, RAG, etc.)
+│       │   └── service/                          # RAG Vector Engine & Gemini AI Dutch Linguistic Service
+│       └── resources/
+│           └── application.yml                   # Port 8080, Virtual Threads & Gemini configuration
+│
+├── frontend/                      # ⚛️ React 19 + TypeScript + Vite Frontend
+│   ├── package.json               # Frontend dependencies and scripts
+│   ├── vite.config.ts             # Vite configuration with proxy to Java backend (http://localhost:8080)
+│   ├── index.html                 # HTML5 entry point
+│   ├── public/                    # PWA icons, manifest & audio assets
+│   └── src/
+│       ├── App.tsx                # Application layout & state coordinator
+│       ├── components/            # UI components (VoiceChat, RagKnowledgeStudio, CorrectieStudio)
+│       ├── lib/                   # Audio synthesis & speech recognition utilities
+│       └── types.ts               # Client TypeScript data contracts
+│
+├── README.md                      # Comprehensive startup & architecture guide
+└── .env.example                   # Environment variables template
+```
 
 ---
 
 ## 📋 Prerequisites
 
-Before running the project locally, ensure you have:
+Before running the application, make sure you have:
 
-1. **Node.js**: Version `18.0.0` or higher (`20.x` or `22.x` recommended)
-   - Check with: `node -v`
-2. **npm**: Version `9.x` or higher (comes with Node.js)
-   - Check with: `npm -v`
-   - *Alternatively, you can use `yarn`, `pnpm`, or `bun`.*
+1. **Java 25 JDK** (for Backend):
+   - Check with: `java -version`
+   - Download: [Oracle JDK 25 Early-Access](https://jdk.java.net/25/) or [Adoptium Eclipse Temurin](https://adoptium.net/)
+2. **Node.js 18+ or 20+** (for Frontend):
+   - Check with: `node -v` and `npm -v`
 3. **Browser**: Google Chrome, Microsoft Edge, or Brave (recommended for Web Speech Recognition and Speech Synthesis APIs).
-4. **Google Gemini API Key** *(Optional but recommended for full AI evaluation)*:
-   - Obtain a free API key from [Google AI Studio](https://aistudio.google.com/).
-   - *Note: PraatNederlands includes built-in Dutch grammar evaluation rules, so the app will still function in offline/fallback mode if no API key is provided.*
+4. **Google Gemini API Key** *(Optional)*:
+   - Obtain a key from [Google AI Studio](https://aistudio.google.com/).
+   - *Note: Both the Java 25 backend and the frontend contain built-in Dutch grammar evaluation rules, so the app will still function seamlessly in fallback mode even without an API key.*
 
 ---
 
-## 🚀 Step-by-Step Local Setup
+## 🚀 How to Start the Systems
 
-### 1. Clone the Repository
+### ☕ 1. Starting the Java 25 Backend
 
-```bash
-git clone https://github.com/vvyavahare/PraatNederlands.git
-cd PraatNederlands
-```
+1. Open a terminal and navigate to the `backend/` directory:
+   ```bash
+   cd backend
+   ```
 
-### 2. Install Dependencies
+2. *(Optional)* Set your Gemini API key:
+   ```bash
+   export GEMINI_API_KEY="your_actual_gemini_api_key_here"
+   ```
 
-Install the project dependencies using npm:
+3. Run the Spring Boot application using the included Maven wrapper:
+   ```bash
+   # On macOS / Linux:
+   ./mvnw spring-boot:run
 
-```bash
-npm install
-```
+   # On Windows (cmd or PowerShell):
+   mvnw.cmd spring-boot:run
+   ```
 
-### 3. Set Up Environment Variables
-
-Copy the example environment file to create your local `.env` configuration:
-
-```bash
-cp .env.example .env
-```
-
-Open `.env` in your code editor and configure your variables:
-
-```env
-# Gemini API Key for AI Dutch Tutor evaluations
-GEMINI_API_KEY="your_actual_gemini_api_key_here"
-
-# Server Port (default: 3000)
-PORT="3000"
-NODE_ENV="development"
-```
-
-> **Note**: PostgreSQL and Redis variables in `.env` are optional. If omitted, PraatNederlands automatically uses its built-in, zero-dependency in-memory store for instant local execution.
-
-### 4. Start the Development Server
-
-Run the development server with live reload:
-
-```bash
-npm run dev
-```
-
-This starts the unified Express + Vite development server at:
-👉 **[http://localhost:3000](http://localhost:3000)**
-
-Open this URL in Google Chrome or Microsoft Edge.
+4. The Java 25 backend will boot on port **`8080`**:
+   - **Base URL**: `http://localhost:8080`
+   - **Health Check**: `http://localhost:8080/healthz`
+   - **Prometheus Metrics**: `http://localhost:8080/actuator/prometheus`
+   - **RAG Knowledge Base**: `http://localhost:8080/api/rag/conversations`
+   - **Conversation Scenarios**: `http://localhost:8080/api/learning/scenarios`
 
 ---
 
-## 🎙️ Using Microphone & Audio
+### ⚛️ 2. Starting the Frontend
 
-1. When you first open the app, your browser will prompt for **Microphone Permission**. Click **Allow**.
-2. Click the large orange **Microphone** button to start speaking Dutch.
-3. Speak at your own pace! The continuous listener will keep recording as you speak.
-4. When you finish your sentence, click **"Stop opname & Evalueer"** to submit, or **"Stop & Bewerk tekst"** if you'd like to inspect or tweak the transcript before sending.
-5. Bram de Vries will respond in spoken Dutch, and your grammar analysis will appear instantly in the **Correctie Studio** on the right!
+1. Open a **second terminal window** and navigate to the `frontend/` directory:
+   ```bash
+   cd frontend
+   ```
+
+2. Install the frontend dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Launch the Vite development server:
+   ```bash
+   npm run dev
+   ```
+
+4. The frontend will start at:
+   👉 **[http://localhost:3000](http://localhost:3000)** (or `http://localhost:5173`)
+
+5. The frontend Vite configuration is pre-configured with an automatic reverse proxy:
+   - All requests sent to `/api/*` are automatically forwarded to the Java 25 backend at `http://localhost:8080`.
+   - You can speak, record dialogues in RAG, and test conversations with Bram de Vries!
 
 ---
 
-## 📦 Production Build & Deployment
+## 🧠 RAG Knowledge Base & Bram de Vries Integration
 
-### Build and Run Locally
+### How RAG Works
+1. **Live Recording & Ingestion**:
+   In the **Kennisbank & RAG** tab, you can record authentic Dutch workplace conversations, standups, or paste meeting transcripts. The backend extracts Dutch idioms (e.g., *"even kortsluiten"*, *"sparren over"*, *"de schouders eronder zetten"*) and computes a 64-dimensional lexical similarity vector.
+2. **Context Injection into Dialogues**:
+   When conversing with **Bram de Vries** (Engineering Lead in Amsterdam) or any other tutor:
+   - If you ask about specific team events, people, or companies present in RAG (e.g., *"Wat weet je over de standup bij Booking en wat heeft Lars gezegd over de datamigratie?"*), the backend retrieves the exact match with high similarity.
+   - Bram directly acknowledges the standup, mentions Lars's PostgreSQL migration, and confirms the staging latency is under 50ms, before coaching your Dutch grammar!
 
-To create an optimized production bundle:
+---
+
+## 🚀 Pushing to GitHub (Same Repo, Separate Folders)
+
+To push the entire codebase (with `backend/` and `frontend/` folders) to your GitHub repository:
 
 ```bash
-# 1. Compile frontend client and server
-npm run build
+# 1. Ensure you are in the root directory
+pwd
 
-# 2. Start the production server
-npm start
+# 2. Stage all changes (backend, frontend, configs, README)
+git add .
+
+# 3. Commit with a descriptive message
+git commit -m "feat: migrate backend to Java 25 Spring Boot and structure repository into Backend and Frontend folders"
+
+# 4. Set main branch and push to your GitHub remote
+git branch -M main
+git push -u origin main
 ```
 
-### Docker Deployment
-
-A `Dockerfile` is included for containerized environments:
-
+If you haven't added the remote origin yet:
 ```bash
-# Build Docker image
-docker build -t praatnederlands:latest .
-
-# Run Docker container
-docker run -p 3000:3000 -e GEMINI_API_KEY="your_api_key" praatnederlands:latest
-```
-
-Navigate to `http://localhost:3000`.
-
----
-
-## 🛠️ Available Scripts
-
-| Script | Command | Description |
-| :--- | :--- | :--- |
-| **Development** | `npm run dev` | Runs backend server with Vite middleware via `tsx` on port 3000 |
-| **Build** | `npm run build` | Builds Vite frontend into `dist/` and bundles `server.ts` into `dist/server.cjs` |
-| **Start** | `npm start` | Runs the compiled production server (`node dist/server.cjs`) |
-| **Lint** | `npm run lint` | Runs TypeScript type checking (`tsc --noEmit`) |
-| **Clean** | `npm run clean` | Cleans build artifacts (`dist/`) |
-
----
-
-## 📂 Project Structure
-
-```text
-PraatNederlands/
-├── server.ts                  # Express server entry point with Vite middleware
-├── server/
-│   ├── controllers/           # API handlers for conversations, audio, users
-│   ├── routes/                # REST endpoints (/api/conversation, /api/user, etc.)
-│   ├── services/              # Gemini AI Tutor service, Postgres & Redis abstractions
-│   └── data/                  # Scenario definitions (IT Interview, Gemeente, etc.)
-├── src/
-│   ├── App.tsx                # Main application component & layout
-│   ├── main.tsx               # React 19 client entry point
-│   ├── components/            # UI components (VoiceChatInterface, Metrics, Scenarios)
-│   ├── lib/
-│   │   ├── speech.ts          # SpeechRecognition & SpeechSynthesis service
-│   │   └── api.ts             # Client-side API client
-│   └── types.ts               # Shared TypeScript data models
-├── public/                    # Static assets (favicons, manifest, icons)
-├── .env.example               # Environment variables template
-├── Dockerfile                 # Multi-stage Docker build configuration
-├── package.json               # Dependencies and build scripts
-└── tsconfig.json              # TypeScript compiler configuration
+git remote add origin https://github.com/vvyavahare/PraatNederlands.git
+git push -u origin main
 ```
 
 ---
 
-## ❓ Frequently Asked Questions & Troubleshooting
+## 🛠️ Java 25 Enterprise Highlights
 
-### Why is microphone not picking up my voice?
-- Make sure you are using **Chrome, Edge, or Brave**.
-- Check that microphone permission is set to "Allow" for `http://localhost:3000` (click the tune/lock icon in the URL bar).
-- Ensure your OS audio input settings have the correct microphone selected.
+The `backend/` leverages key modern Java 25 capabilities:
+- **Project Loom Virtual Threads**: Enabled via `spring.threads.virtual.enabled: true` for zero-overhead, high-throughput asynchronous HTTP processing.
+- **Java 25 Immutable Records**: Used across all domain objects (`ConversationTurn`, `RealtimeConversationRecord`, `RoleplayScenario`, `DutchTutorResponse`) for memory safety and zero boilerplate.
+- **Pattern Matching**: Employed in grammar evaluation rules for verb-second inversion (`Inversie`), subordinate clause order (`SOV`), and article gender (`de/het`).
+- **RESTful API Surface**: Full compatibility with the existing frontend client endpoints (`/api/conversation/*`, `/api/rag/*`, `/api/learning/*`, `/api/ops/*`).
 
-### Can I run the app without a Gemini API Key?
-Yes! The application features a robust offline linguistic evaluation engine that checks Dutch inversion, common B1/B2 errors, and scenario-specific conversational flows. However, providing a `GEMINI_API_KEY` unlocks dynamic, context-aware AI conversation and tailored B2 phrasing.
+---
+
+## 🎙️ Speech Recognition & Browser Notes
+
+- **Supported Browsers**: Google Chrome, Microsoft Edge, and Brave provide the best support for the Web Speech Recognition API and native Dutch speech synthesis.
+- **Microphone Permissions**: Click **"Allow"** when prompted by the browser for microphone access on `http://localhost:3000`.
 
 ---
 
 ## 📄 License
-
 This project is licensed under the MIT License.
 Veel succes met het leren van Nederlands! 🇳🇱🚀

@@ -9,10 +9,10 @@ export const SCENARIOS: RoleplayScenario[] = [
     level: 'B2.1',
     icon: 'Briefcase',
     characterName: 'Bram de Vries',
-    characterRole: 'Engineering Manager bij FinTech Amsterdam',
+    characterRole: 'Engineering Lead & Tech Manager (Amsterdam tech community)',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    description: 'Bespreek je technische achtergrond, werkervaring met Java en microservices, en hoe je omgaat met agile teamuitdagingen.',
-    briefing: 'Je zit aan tafel met Bram voor een B2-level sollicitatiegesprek. Hij wil weten waarom je naar Nederland bent verhuisd, hoe je communiceert binnen een scrum-team en hoe je complexe technische keuzes onderbouwt.',
+    description: 'Bespreek je technische achtergrond, werkervaring met Java en microservices, team-standups en hoe je omgaat met agile teamuitdagingen.',
+    briefing: 'Je zit aan tafel met Bram voor een professioneel B2-level gesprek. Bram volgt actuele standups, datamigraties, scrum-processen en innovaties in de Nederlandse tech-scene op de voet, en bespreekt graag zowel jouw ervaring als team-inzichten uit de kennisbank.',
     initialMessageNl: 'Goedemorgen! Fijn dat je er bent. Welkom bij ons op kantoor. Laten we beginnen: kun je jezelf kort voorstellen en vertellen wat je aanspreekt in deze functie?',
     learningGoals: [
       'Professioneel verleden presenteren met de voltooid tegenwoordige tijd (perfectum)',
