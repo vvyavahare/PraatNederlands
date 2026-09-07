@@ -1,22 +1,8 @@
 import { GoogleGenAI, Type } from '@google/genai';
-import { ConversationTurn, DutchIdiom, GrammarCorrection, RoleplayScenario } from '../types/index.ts';
+import { ConversationTurn, DutchIdiom, DutchTutorResponse, GrammarCorrection, RoleplayScenario } from '../types/index.ts';
 import { metricsService } from './metricsService.ts';
 import { logger } from './logger.ts';
 import { ragService } from './ragService.ts';
-
-
-interface DutchTutorResponse {
-  grammarStatus: 'perfect' | 'needs_improvement';
-  grammarSummary: string;
-  improvedDutch: string;
-  replyInDutch: string;
-  englishTranslation: string;
-  corrections: GrammarCorrection[];
-  b2Upgrade: string;
-  pronunciationTip: string;
-  xpEarned: number;
-  suggestedQuickReplies: string[];
-}
 
 export class AiDutchTutorService {
   private getAiClient(): GoogleGenAI | null {

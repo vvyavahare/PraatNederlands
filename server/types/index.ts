@@ -76,6 +76,22 @@ export interface MetricSnapshot {
   uptimeSeconds: number;
 }
 
+export interface DutchTutorResponse {
+  grammarStatus: 'perfect' | 'needs_improvement';
+  grammarSummary: string;
+  improvedDutch: string;
+  replyInDutch?: string;
+  dutchReply?: string;
+  englishTranslation: string;
+  corrections: GrammarCorrection[] | any[];
+  b2Upgrade: string;
+  pronunciationTip: string;
+  xpEarned: number;
+  suggestedQuickReplies: string[];
+}
+
+export type DutchEvaluationResponse = DutchTutorResponse;
+
 export interface RealtimeConversationTurn {
   speaker: string; // e.g. "Collega A", "Bram", "Baliemedewerker", "Student"
   text: string;

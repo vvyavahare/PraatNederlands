@@ -52,6 +52,10 @@ export class CacheService {
     return this.inMemoryStore.delete(key);
   }
 
+  public async flush(): Promise<void> {
+    this.inMemoryStore.clear();
+  }
+
   public async deletePrefix(prefix: string): Promise<number> {
     let count = 0;
     for (const key of this.inMemoryStore.keys()) {
